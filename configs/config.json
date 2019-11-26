@@ -1,0 +1,13 @@
+{
+    "param_loader": {
+        "batch_size": 32,
+        "validation_split": 0.2,
+        "shuffle_dataset": true,
+        "random_seed": 42
+    },
+    "param_classifier": {
+        "threshold": 0.5,
+        "learning_rate": 0.001,
+        "epochs": 40
+    }
+}

@@ -3,6 +3,7 @@ import time
 import torch
 from livelossplot import PlotLosses
 from torchvision import models
+from skimage import io
 
 from src.utils import Constants
 
@@ -45,7 +46,7 @@ class AlimentClassifier:
     def build_model(
         self,
         # model_pretrained=models.mobilenet_v2(pretrained=True),
-        model_pretrained=models.resnet50(pretrained=True),
+        model_pretrained=None,
         feature_extract=True,
     ):
         """
@@ -59,7 +60,10 @@ class AlimentClassifier:
                 parameters will be updated
         """
         # Build model using pretrained model for transfer learning
-        self.model = model_pretrained
+        if model_pretrained is None:
+            self.model = models.resnet50(pretrained=True)
+        else:
+            self.model = model_pretrained
 
         # Fix pretrenained model if feature extract, no need to backpropagate
         # But if we're finetuning we do not fix
@@ -233,7 +237,8 @@ def save_checkpoint(model, model_name="checkpoint.pth"):
 
 
 def load_checkpoint(filepath):
-    checkpoint = torch.load(filepath)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    checkpoint = torch.load(filepath, map_location=torch.device(device))
     if checkpoint['arch'] == 'ResNet50+TopLayerResNet50':
         model = models.resnet50(pretrained=True)
         for param in model.parameters():
@@ -252,6 +257,55 @@ def load_checkpoint(filepath):
     model.load_state_dict(checkpoint['model_state_dict'])
 
     return model
+
+
+def predict_img(model, image_path, transformation_pipeline):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    image = transformation_pipeline(image=io.imread(image_path))['image']
+    image = image.unsqueeze(0).to(device)
+    output = model.forward(image)
+    return output
+
+def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
+    import numpy as np
+    from torch.autograd import Variable
+    import matplotlib.pyplot as plt
+
+    conv_fmap = []
+    def hook(module, input, output):
+        return conv_fmap.append(output.data.cpu().numpy())
+
+    model._modules.get(last_conv_layer).register_forward_hook(hook)
+
+    params = list(model.parameters())
+    weight_softmax = np.squeeze(params[-4].data.cpu().numpy())
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    image = transformation_pipeline(image=io.imread(image_path))['image']
+    image = Variable(image.unsqueeze(0)).to(device)
+
+    logit = model(image)
+
+    h_x = torch.nn.functional.softmax(logit, dim=1).data.squeeze()
+    probs, idx = h_x.sort(0, True)
+
+    bz, nc, h, w = conv_fmap[0].shape
+    output_cam = []
+
+    print(bz, nc, h, w)
+    print(weight_softmax.shape)
+
+    cam = weight_softmax.dot(conv_fmap[0].reshape((nc, h*w)))
+    cam = cam.reshape(h*w, h*w)
+    cam = cam - np.min(cam)
+    cam_img = cam / np.max(cam)
+    cam_img = np.uint8(255 * cam_img)
+    print()
+    print(cam_img.shape)
+    print(cam_img)
+    plt.imshow(cam_img)
+    plt.show()
+
 
 
 class TopLayerResNet50(torch.nn.Module):

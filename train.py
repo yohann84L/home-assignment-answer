@@ -2,6 +2,7 @@ from pathlib import Path
 
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+from torchvision import models
 
 from src.classifier import AlimentClassifier
 from src.foodvisor_dataset import FoodVisorDataset, FoodDatasetLoader
@@ -74,7 +75,6 @@ if __name__ == "__main__":
     augmentation_pipeline_train = load_agumentation_pipelines[0]
     tranformation_pipeline_test = load_agumentation_pipelines[1]
 
-
     # Build dataset
     food_dataset_train = FoodVisorDataset(
         json_annotations=IMG_ANNOTATIONS_PATH,
@@ -105,6 +105,17 @@ if __name__ == "__main__":
     print("Build classifier & model ..")
     # Build classifier
     classifier = AlimentClassifier()
-    classifier.build_model(feature_extract=True)
+    classifier.build_model(
+        model_pretrained=models.resnet50(pretrained=True),
+        feature_extract=True
+    )
 
     print("Start training ..")
+    # Train
+    classifier.train_classifier(
+        train_loader=train_loader,
+        test_loader=test_loader,
+        params=params_classifier,
+        livelossplot=False,
+        save_checkpoint_each=None,
+    )

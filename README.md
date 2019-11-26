@@ -53,10 +53,7 @@ python pred.py model_filepath img_filepath
 ```
 With:
 - `model_filepath`: filepath for the model checkpoint
-- `img_filepath`: filepath for 
-- `label_mapping`: path file for the `label_mapping.csv`
-- `model_filepath`: path file to save the model checkpoint
-- `config`: path file for the `config.json` file. 
+- `img_filepath`: filepath for the image we want to predict class
 
 
 ## Classifation and Results
@@ -109,8 +106,10 @@ We can see at epochs xx, we have an  error_rate < dd.
 
 
 ## References
-- FoodVisor Home Assigment : https://github.com/Foodvisor/home-assignment
-- Custom Datasets/Dataloaders in PyTorch : https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#writing-custom-datasets-dataloaders-and-transforms
+- FoodVisor Home Assigment: https://github.com/Foodvisor/home-assignment
+- Custom Datasets/Dataloaders in PyTorch: https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#writing-custom-datasets-dataloaders-and-transforms
 - Example custom dataset: https://github.com/utkuozbulak/pytorch-custom-dataset-examples#custom-dataset-fundamentals
-- Example PyTorch Image Classification : https://github.com/LeanManager/PyTorch_Image_Classifier
+- Example PyTorch Image Classification: https://github.com/LeanManager/PyTorch_Image_Classifier
 - Albumentations librairie: https://github.com/albumentations-team/albumentations
+- Livelossplot librairie: 
+- Save and loading checkpoint function from : https://github.com/LeanManager/PyTorch_Image_Classifier/blob/master/Image_Classifier_Project.ipynb

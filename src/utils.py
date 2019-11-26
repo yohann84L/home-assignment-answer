@@ -46,6 +46,20 @@ def init_parser_train():
     return parser.parse_args()
 
 
+def init_parser_pred():
+    """
+    Function used to initialize parameters of script pred.
+
+    - `model_filepath`: filepath for the model checkpoint
+    - `img_filepath`: filepath for the image we want to predict class
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model_filepath", help="File path for the model")
+    parser.add_argument("img_filepath", help="File path for the image we want to predict class")
+    parser.add_argument("--plot_result", help="Boolean to plot or not the result")
+    return parser.parse_args()
+
+
 def parse_config_file(config_path):
     """
     Function to parse json config file.

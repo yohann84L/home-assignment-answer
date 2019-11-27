@@ -1,14 +1,13 @@
-from pathlib import Path
 import glob
+from pathlib import Path
+
 import albumentations as A
 import matplotlib.pyplot as plt
 from PIL import Image
 from albumentations.pytorch import ToTensorV2
-from torchvision.datasets import ImageFolder
 from skimage import io
-import numpy as np
 
-from src.classifier import predict_img, load_checkpoint, get_cam
+from src.classifier import predict_img, load_checkpoint
 from src.utils import init_parser_pred
 
 

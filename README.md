@@ -81,19 +81,17 @@ Several options are available here to build a classifier:
 3. use transfer learning with pretrained architecture (same ones)
 
 Considering the number of sample we have, it is more interesting to use transfer learning
-to use the pretrained feature extractor and avoid a bit of overfitting.
+to use the pretrained feature extractor and avoid a bit of overfitting. As we do not have a big dataset and our data is not 
+similar to ImageNet (the dataset used to train ResNet), we'll freeze the only some lower layer. I choose to freeze the first 6
+layer (this number is choosen quite randomly) and change the last layer to match out 2 ouput class.
 
-PyTorch offer a lot of pretrained model in `torchvision.models`, I will use here ResNet50 ([Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)). It offer a 
-good balance between top % error and number of paramters.
+PyTorch offer a lot of pretrained model in `torchvision.models`, I will use here ResNet18 ([Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)).
+This model is very lighteweight compared to ResNet50 or 102, it is good choice to get first results.
 
-The pretrained model from `torchvision.models` has a last layer with 2048 outputs. We need to fine tune this classifier
-by changing it. To do that, we replace the original classifier by the following.
 
 Workflow to train the classifier:
 - Build dataset using `FoodVisorDataset`
-- Build loader using `FoodDatasetLoader`, we use a sampler for the loader:
-    - `WeightedRandomSampler` for train_loader
-    - `RandomSampler` for test_loader
+- Build loader using pytorch `DatasetLoader`, we use a sampler for the loader:
 - Build model classifier with `AlimentClassifier().build_model()`
 - Train model with `AlimentClassifier().train_classifier(train_loader, test_loader)`
 

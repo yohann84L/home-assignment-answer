@@ -2,10 +2,13 @@ from pathlib import Path
 
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from torchvision import models
+from torch.utils.data import DataLoader
 
 from src.classifier import AlimentClassifier
-from src.foodvisor_dataset import FoodVisorDataset, FoodDatasetLoader
+from src.foodvisor_dataset import (
+    FoodVisorDataset,
+    split_train_test_valid_json,
+)
 from src.utils import init_parser_train, parse_config_file
 
 
@@ -75,40 +78,58 @@ if __name__ == "__main__":
     augmentation_pipeline_train = load_agumentation_pipelines()[0]
     tranformation_pipeline_test = load_agumentation_pipelines()[1]
 
+    (
+        img_annotations_train,
+        img_annotations_test,
+        img_annotations_valid,
+    ) = split_train_test_valid_json(
+        IMG_ANNOTATIONS_PATH, random_seed=42, split_size=[0.7, 0.2, 0.1]
+    )
+
     # Build dataset
     food_dataset_train = FoodVisorDataset(
-        json_annotations=IMG_ANNOTATIONS_PATH,
+        json_annotations=img_annotations_train,
         csv_mapping=LABEL_MAPPING_PATH,
         root_dir=FOLDER_IMGS,
         regex_aliment=r"[Tt]omate(s)?",
         augmentations=augmentation_pipeline_train,
     )
     food_dataset_test = FoodVisorDataset(
-        json_annotations=IMG_ANNOTATIONS_PATH,
+        json_annotations=img_annotations_test,
+        csv_mapping=LABEL_MAPPING_PATH,
+        root_dir=FOLDER_IMGS,
+        regex_aliment=r"[Tt]omate(s)?",
+        augmentations=tranformation_pipeline_test,
+    )
+    food_dataset_valid = FoodVisorDataset(
+        json_annotations=img_annotations_valid,
         csv_mapping=LABEL_MAPPING_PATH,
         root_dir=FOLDER_IMGS,
         regex_aliment=r"[Tt]omate(s)?",
         augmentations=tranformation_pipeline_test,
     )
 
-    print("Compute weights")
-    weights = food_dataset_train.make_weights_for_balanced_classes()
-
-    # Init classifier with food_dataset
-    loaders = FoodDatasetLoader(
-        food_dataset_train, food_dataset_test, weights, param_loader=params_loader
-    )
-
     # Build train and test loader
-    train_loader, test_loader = loaders.build_loader()
+    train_loader = DataLoader(
+        food_dataset_train,
+        batch_size=params_loader["batch_size"],
+        shuffle=params_loader["shuffle_dataset"],
+    )
+    test_loader = DataLoader(
+        food_dataset_test,
+        batch_size=params_loader["batch_size"],
+        shuffle=params_loader["shuffle_dataset"],
+    )
+    valid_loader = DataLoader(
+        food_dataset_valid,
+        batch_size=params_loader["batch_size"],
+        shuffle=params_loader["shuffle_dataset"],
+    )
 
     print("Build classifier & model ..")
     # Build classifier
     classifier = AlimentClassifier()
-    classifier.build_model(
-        model_pretrained=models.resnet50(pretrained=True),
-        feature_extract=True
-    )
+    classifier.build_model()
 
     print("Start training ..")
     # Train

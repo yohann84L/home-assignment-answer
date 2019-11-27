@@ -2,8 +2,8 @@ import time
 
 import torch
 from livelossplot import PlotLosses
-from torchvision import models
 from skimage import io
+from torchvision import models
 
 from src.utils import Constants
 
@@ -31,9 +31,9 @@ class AlimentClassifier:
 
         # Loss function and gradient descent
         if loss is None:
-            # weights = [500 / 3000]
-            # class_weights = torch.tensor(weights, dtype=torch.float, device=self.device)
-            self.loss = torch.nn.BCELoss()
+            weights = [1, 6]
+            class_weights = torch.tensor(weights, dtype=torch.float, device=self.device)
+            self.loss = torch.nn.CrossEntropyLoss(weight=class_weights)
         else:
             self.loss = loss
 
@@ -43,12 +43,7 @@ class AlimentClassifier:
         else:
             self.params_classifier = params_classifier
 
-    def build_model(
-        self,
-        # model_pretrained=models.mobilenet_v2(pretrained=True),
-        model_pretrained=None,
-        feature_extract=True,
-    ):
+    def build_model(self, model=models.resnet18, pretrained=True):
         """
         Method to build the model: pretrained model with new top layer classifier.
 
@@ -59,34 +54,27 @@ class AlimentClassifier:
             - feature_extract (bool=True): if true, only top layers classifier
                 parameters will be updated
         """
-        # Build model using pretrained model for transfer learning
-        if model_pretrained is None:
-            self.model = models.resnet50(pretrained=True)
-        else:
-            self.model = model_pretrained
+        self.model = model(pretrained=pretrained)
 
-        # Fix pretrenained model if feature extract, no need to backpropagate
-        # But if we're finetuning we do not fix
-        self.set_parameter_requires_grad(self.model, feature_extract)
+        # Freeze 6 first layers
+        count = 0
+        params_to_update = []
+        for child in self.model.children():
+            count += 1
+            if count < 7:
+                for param in child.parameters():
+                    param.requires_grad = False
 
-        # Build top layer for classification (binary here)
+        # Update last layers ouputs
         num_ftrs = self.model.fc.in_features
-        self.model.fc = TopLayerResNet50(in_size=num_ftrs, out_size=1)
+        self.model.fc = torch.nn.Linear(num_ftrs, 2)
 
-        # Get the parameters of the model to update during training,
-        # it depends of which parameters requires grad
-        params_to_update = self.model.parameters()
-        print("Params to learn:")
-        if feature_extract:
-            params_to_update = []
-            for name, param in self.model.named_parameters():
-                if param.requires_grad:
-                    params_to_update.append(param)
-                    print("\t", name)
-        else:
-            for name, param in self.model.named_parameters():
-                if param.requires_grad:
-                    print("\t", name)
+        # Print parameters we'll learn
+        for name, param in self.model.named_parameters():
+            if param.requires_grad:
+                params_to_update.append(param)
+                print("\t", name)
+
         self.optimizer = self.optimizer(
             params_to_update, lr=self.params_classifier["learning_rate"]
         )
@@ -114,7 +102,7 @@ class AlimentClassifier:
         # Update parameters if given
 
         if save_checkpoint_each is None:
-            save_checkpoint_each = self.params_classifier["epochs"] - 1
+            save_checkpoint_each = [self.params_classifier["epochs"]]
         if params:
             for param, value in params.items():
                 self.params_classifier[param] = value
@@ -147,7 +135,7 @@ class AlimentClassifier:
 
                 for images, labels in iter(loader_dict[phase]):
                     images = images.to(self.device)
-                    labels = torch.tensor(labels, dtype=torch.float, device=self.device)
+                    labels = torch.tensor(labels, dtype=torch.long, device=self.device)
 
                     # Compute forward
                     output = self.model.forward(images)
@@ -160,21 +148,11 @@ class AlimentClassifier:
                         self.optimizer.step()
 
                     # Compute prediction
-                    preds = torch.where(
-                        output >= self.params_classifier["threshold"],
-                        torch.tensor(1, device=self.device),
-                        torch.tensor(0, device=self.device),
-                    )
+                    _, predicted = torch.max(output, 1)
                     running_loss += loss.detach() * images.size(0)
-                    running_uncorrects += torch.sum(
-                        preds != labels.data.detach().view(labels.data.size()[0], 1)
-                    )
+                    running_uncorrects += torch.sum(predicted != labels.data.detach())
 
-                # Update loss and error_rate for the last epoch
-                if phase == "train":
-                    size_loader = loader_dict[phase].sampler.num_samples
-                else:
-                    size_loader = len(loader_dict[phase].dataset)
+                size_loader = len(loader_dict[phase].dataset)
                 epoch_loss = running_loss / size_loader
                 epoch_error_rate = running_uncorrects.float() / size_loader
 
@@ -197,7 +175,7 @@ class AlimentClassifier:
             # Save checkpoint
             if (e + 1) in save_checkpoint_each:
                 save_checkpoint(
-                    self.model, model_name="ResNet50_checkpoint_e{}.pth".format(e)
+                    self.model, model_name="AlexNet_checkpoint_e{}.pth".format(e)
                 )
 
         # Print training time
@@ -224,47 +202,66 @@ class AlimentClassifier:
             for param in model.parameters():
                 param.requires_grad = False
 
+    def evaluate(self, valid_dataset):
+        self.model.eval()
+
+        # Iterate over the valid_dataset
+        pred_proba = torch.empty(0, 2, device=self.device).zero_().float()
+        true_labels = torch.empty(0, 2, device=self.device).zero_().float()
+        for images, labels in valid_dataset:
+            images = images.to(self.device)
+            labels = torch.tensor(labels, dtype=torch.long, device=self.device)
+
+            true_labels = torch.cat((true_labels, labels))
+
+            output = self.model.forward(images)
+            pred_proba = torch.cat((pred_proba, output))
+
+        return pred_proba, true_labels
+
 
 def save_checkpoint(model, model_name="checkpoint.pth"):
     """
     Function to save model
     """
     checkpoint = {
-        "arch": "ResNet50+TopLayerResNet50",
+        "arch": "ResNet18",
         "model_state_dict": model.state_dict(),
     }
     torch.save(checkpoint, model_name)
 
 
 def load_checkpoint(filepath):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    checkpoint = torch.load(filepath, map_location=torch.device(device))
-    if checkpoint['arch'] == 'ResNet50+TopLayerResNet50':
-        model = models.resnet50(pretrained=True)
-        for param in model.parameters():
-            param.requires_grad = False
+    checkpoint = torch.load(filepath)
+    if checkpoint["arch"] == "ResNet18":
+        model = models.resnet18(pretrained=True)
+        # Freeze 6 first layers
+        count = 0
+        params_to_update = []
+        for child in model.children():
+            count += 1
+            if count < 7:
+                for param in child.parameters():
+                    param.requires_grad = False
     else:
         print("Architecture not recognized.")
         raise ValueError
 
-    # Fix pretrenained model if feature extract, no need to backpropagate
-    # But if we're finetuning we do not fix
-    AlimentClassifier.set_parameter_requires_grad(model, True)
-
-    # Build top layer for classification (binary here)
+    # Update last layers ouputs
     num_ftrs = model.fc.in_features
-    model.fc = TopLayerResNet50(in_size=num_ftrs, out_size=1)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.fc = torch.nn.Linear(num_ftrs, 2)
+    model.load_state_dict(checkpoint["model_state_dict"])
 
     return model
 
 
 def predict_img(model, img, transformation_pipeline):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    image = transformation_pipeline(image=img)['image']
+    image = transformation_pipeline(image=img)["image"]
     image = image.unsqueeze(0).to(device)
     output = model.forward(image)
     return output
+
 
 def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
     import numpy as np
@@ -272,6 +269,7 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
     import matplotlib.pyplot as plt
 
     conv_fmap = []
+
     def hook(module, input, output):
         return conv_fmap.append(output.data.cpu().numpy())
 
@@ -281,7 +279,7 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
     weight_softmax = np.squeeze(params[-4].data.cpu().numpy())
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    image = transformation_pipeline(image=io.imread(image_path))['image']
+    image = transformation_pipeline(image=io.imread(image_path))["image"]
     image = Variable(image.unsqueeze(0)).to(device)
 
     logit = model(image)
@@ -295,40 +293,10 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
     print(bz, nc, h, w)
     print(weight_softmax.shape)
 
-    cam = weight_softmax.dot(conv_fmap[0].reshape((nc, h*w)))
-    cam = cam.reshape(h*w, h*w)
+    cam = weight_softmax.dot(conv_fmap[0].reshape((nc, h * w)))
+    cam = cam.reshape(h * w, h * w)
     cam = cam - np.min(cam)
     cam_img = cam / np.max(cam)
     cam_img = np.uint8(255 * cam_img)
     plt.imshow(cam_img)
     plt.show()
-
-
-
-class TopLayerResNet50(torch.nn.Module):
-    """
-    Modified classifier for ResNet50 in order to adapt the model to our problem (binary classification).
-
-    Arguments:
-    ----------
-        - in_size (int=2048): input size of last layer of ResNet50, it should be 2048
-        - out_size (int=1): number of classes
-    """
-
-    def __init__(self, in_size: int = 2048, out_size: int = 1):
-        super(TopLayerResNet50, self).__init__()
-        self.linear1 = torch.nn.Linear(in_features=in_size, out_features=256, bias=True)
-        self.relu = torch.nn.ReLU()
-        self.dropout = torch.nn.Dropout(p=0.5)
-        self.linear2 = torch.nn.Linear(
-            in_features=256, out_features=out_size, bias=True
-        )
-        self.sigmoid = torch.nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.linear1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.linear2(x)
-        x = self.sigmoid(x)
-        return x

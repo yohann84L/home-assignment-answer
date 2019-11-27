@@ -1,4 +1,5 @@
 import json
+import random
 import re
 from pathlib import Path
 
@@ -31,15 +32,14 @@ class FoodVisorDataset(torch.utils.data.Dataset):
 
     def __init__(
         self,
-        json_annotations: str,
+        json_annotations: dict,
         csv_mapping: str,
         root_dir: str,
         regex_aliment: str,
-        augmentations: A=None,
-        lang: str = "fr"
+        augmentations: A = None,
+        lang: str = "fr",
     ):
-        with open(json_annotations) as f:
-            self.img_annotations = json.load(f)
+        self.img_annotations = json_annotations
         self.csv_mapping = pd.read_csv(csv_mapping)
         self.root_dir = Path(root_dir)
         self.augmentations = augmentations
@@ -52,19 +52,23 @@ class FoodVisorDataset(torch.utils.data.Dataset):
                 print("   - {:s}".format(l))
             raise ValueError
 
+        # For faster computation, let's build a dictionnary with equivalence img_id <->> classe
+        self.image_to_classes = {}
+        self.__build_image_to_classes()
+
     def __getitem__(self, index: int):
         img_id = list(self.img_annotations.keys())[index]
         img_name = self.root_dir / img_id
 
         if self.augmentations:
-            image = self.augmentations(image=io.imread(img_name))['image']
+            image = self.augmentations(image=io.imread(img_name))["image"]
         else:
             image = Image.fromarray(io.imread(img_name))
 
-        if self.__is_aliment_present(img_id):
-            return image, Constants.POSITIVE[0]
+        if self.image_to_classes:
+            return image, self.image_to_classes[img_id]
         else:
-            return image, Constants.NEGATIVE[0]
+            raise NotImplementedError
 
     def __len__(self) -> int:
         return len(self.img_annotations.keys())
@@ -81,151 +85,55 @@ class FoodVisorDataset(torch.utils.data.Dataset):
             return True
         return False
 
-    def make_weights_for_balanced_classes(self):
-        count = [0] * 2
-        img_ids = list(self.img_annotations.keys())
-        for id in img_ids:
-            if self.__is_aliment_present(id):
-                count[1] += 1
+    def __build_image_to_classes(self):
+        for img_id in self.img_annotations.keys():
+            if self.__is_aliment_present(img_id):
+                self.image_to_classes[img_id] = 1
             else:
-                count[0] += 1
-        weight_per_class = [0.] * 2
-        N = float(sum(count))
-        for i in range(2):
-            weight_per_class[i] = N / float(count[i])
-        weight = [0] * len(img_ids)
-        for idx, val in enumerate(img_ids):
-            if self.__is_aliment_present(val):
-                weight[idx] = weight_per_class[1]
-            else:
-                weight[idx] = weight_per_class[0]
-
-        return weight
+                self.image_to_classes[img_id] = 0
 
 
-class FoodDatasetLoader:
-    """
-    Custom loader adapted to FoodVisorDataset and with ability to build train and test loader.
+def split_train_test_valid_json(
+    img_annotation_path, random_seed=None, split_size=(0.8, 0.2)
+):
+    with open(img_annotation_path) as f:
+        img_annotation = json.load(f)
 
-    Arguments:
-    ----------
-        - food_dataset (FoodVisorDataset): dataset to build loaders
-        - params (dict): dict with parameters for the loaders.
-        Default param are : {
-                "batch_size": 32,
-                "validation_split": 0.2,
-                "shuffle_dataset": True,
-                "random_seed": 42,
-                }
-    """
-    def __init__(self, food_dataset_train: FoodVisorDataset, food_dataset_test: FoodVisorDataset, weights, param_loader=None):
-        self.food_dataset_train = food_dataset_train
-        self.food_dataset_test = food_dataset_test
-        self.weights = weights
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        if param_loader is None:
-            self.param_loader = Constants.DEFAULT_PARAM_LOADER
-        else:
-            self.param_loader = param_loader
+    img_ids = list(img_annotation.keys())
+    if random_seed:
+        random.seed(random_seed)
+    random.shuffle(img_ids)
+    total_length = len(img_ids)
+    img_ids = np.array(img_ids)
 
-    def build_loader(self):
-        """
-        Method to build train and test loader
-        :return:
-        """
-        # Check if all parameter exits
-        for p, value in Constants.DEFAULT_PARAM_LOADER.items():
-            if p not in self.param_loader:
-                self.param_loader[p] = value
-
-        # Creating data indices for training, test and
-        # validation splits with equal sample of each class:
-        dataset_size = len(self.food_dataset_train)
-        indices = list(range(dataset_size))
-        split = int(np.floor(self.param_loader["validation_split"] * dataset_size))
-        if self.param_loader["shuffle_dataset"]:
-            np.random.seed(self.param_loader["random_seed"])
-            np.random.shuffle(indices)
-        train_indices, test_indices = indices[split:], indices[:split]
-
-        # Creating PT data samplers and loaders:
-        #train_sampler = SubsetRandomSampler(train_indices)
-        #test_sampler = SubsetRandomSampler(test_indices)
-
-        train_set = torch.utils.data.Subset(self.food_dataset_train, train_indices)
-        test_set = torch.utils.data.Subset(self.food_dataset_test, test_indices)
-
-        #print(train_set.indices)
-
-        train_sampler = torch.utils.data.WeightedRandomSampler(
-            weights=[self.weights[idx] for idx in train_indices],
-            num_samples=len(train_indices),
-            replacement=True
+    if len(split_size) == 1 and split_size[0] <= 1:
+        split_key = np.split(img_ids, [np.floor(total_length * split_size[0])])
+        return (
+            {k: v for k, v in img_annotation.items() if k in split_key[0]},
+            {k: v for k, v in img_annotation.items() if k in split_key[1]},
+        )
+    elif len(split_size) == 2 and split_size[0] <= 1:
+        split_key = np.split(img_ids, [int(np.floor(total_length * split_size[0]))])
+        return (
+            {k: v for k, v in img_annotation.items() if k in split_key[0]},
+            {k: v for k, v in img_annotation.items() if k in split_key[1]},
+        )
+    elif len(split_size) == 3 and split_size[0] <= 1:
+        split_key = np.split(
+            img_ids,
+            [
+                int(np.floor(total_length * split_size[0])),
+                int(np.floor(total_length * (split_size[0] + split_size[1]))),
+            ],
+        )
+        return (
+            {k: v for k, v in img_annotation.items() if k in split_key[0]},
+            {k: v for k, v in img_annotation.items() if k in split_key[1]},
+            {k: v for k, v in img_annotation.items() if k in split_key[2]},
         )
 
-        #test_sampler = SubsetRandomSampler(test_indices)
-
-        train_loader = torch.utils.data.DataLoader(
-            train_set,
-            batch_size=self.param_loader["batch_size"],
-            sampler=train_sampler,
-        )
-
-        test_loader = torch.utils.data.DataLoader(
-            test_set,
-            batch_size=self.param_loader["batch_size"]
-        )
-
-        return train_loader, test_loader
-
-
-class WeightedDatasetSampler(torch.utils.data.sampler.Sampler):
-    """Samples elements randomly from a given list of indices for imbalanced dataset
-    Arguments:
-        indices (list, optional): a list of indices
-    """
-    def __init__(self, dataset, indices, weights=None):
-        super().__init__(dataset)
-        # if indices is not provided,
-        # all elements in the dataset will be considered
-        self.indices = indices
-
-        # if num_samples is not provided,
-        # draw `len(indices)` samples in each iteration
-        self.num_samples = len(self.indices)
-
-        # distribution of classes in the dataset
-        if weights is None:
-            label_to_count = {}
-            for idx in self.indices:
-                label = self._get_label(dataset, idx)
-                if label in label_to_count:
-                    label_to_count[label] += 1
-                else:
-                    label_to_count[label] = 1
-            # weight for each sample
-            weights = [1.0 / label_to_count[self._get_label(dataset, idx)]
-                       for idx in self.indices]
-            self.weights = torch.DoubleTensor(weights)
-        else:
-            self.weights = weights
-
-    def _get_label(self, dataset, idx):
-        dataset_type = type(dataset)
-        if dataset_type is FoodVisorDataset:
-            return dataset[idx][1]
-        else:
-            raise NotImplementedError
-
-    def __iter__(self):
-        print(self.indices)
-        print(torch.multinomial(
-            self.weights, self.num_samples, replacement=True))
-        return (self.indices[i] for i in torch.multinomial(
-            self.weights, self.num_samples, replacement=True))
-
-    def __len__(self):
-        return self.num_samples
+    else:
+        raise NotImplementedError
 
 
 def plot_9_images(dataset):

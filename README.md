@@ -101,7 +101,7 @@ Workflow to train the classifier:
 
 Here are the plot of training and test error_rate:
 
-We can see at epochs xx, we have an  error_rate < dd.
+![result1](plot/resnet50_pretrained.png)
 
 
 

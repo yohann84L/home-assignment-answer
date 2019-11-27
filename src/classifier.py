@@ -284,19 +284,18 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
 
     logit = model(image)
 
-    h_x = torch.nn.functional.softmax(logit, dim=1).data.squeeze()
-    probs, idx = h_x.sort(0, True)
 
     bz, nc, h, w = conv_fmap[0].shape
-    output_cam = []
 
     print(bz, nc, h, w)
     print(weight_softmax.shape)
 
     cam = weight_softmax.dot(conv_fmap[0].reshape((nc, h * w)))
-    cam = cam.reshape(h * w, h * w)
+    plt.imshow(cam)
+    cam = cam.reshape(h, w)
     cam = cam - np.min(cam)
     cam_img = cam / np.max(cam)
     cam_img = np.uint8(255 * cam_img)
+    print(cam_img.shape)
     plt.imshow(cam_img)
     plt.show()

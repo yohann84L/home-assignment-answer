@@ -99,7 +99,10 @@ Workflow to train the classifier:
 
 Here are the plot of training and test error_rate:
 
-![result1](plot/resnet50_pretrained.png)
+UPCOMING IN THE AFTERNOON
+
+### Model Release
+ResNet18 with 6 first layers freezed, trained on 1950 images : UPCOMING IN THE AFTERNOON
 
 
 

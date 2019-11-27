@@ -86,7 +86,8 @@ similar to ImageNet (the dataset used to train ResNet), we'll freeze the only so
 layer (this number is choosen quite randomly) and change the last layer to match out 2 ouput class.
 
 PyTorch offer a lot of pretrained model in `torchvision.models`, I will use here ResNet18 ([Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)).
-This model is very lighteweight compared to ResNet50 or 102, it is good choice to get first results.
+This model is very lighteweight compared to ResNet50 or 102, it is good choice to get first results and it will probably less overfit than more complex
+network.
 
 
 Workflow to train the classifier:
@@ -99,10 +100,18 @@ Workflow to train the classifier:
 
 Here are the plot of training and test error_rate:
 
-UPCOMING IN THE AFTERNOON
+![resnet_training](resnet18_training_50.png)
+
+We can see we start to overfit a bit around around 30 epochs. However, the error rate seems to decrease even after 30 epochs. So I'll save the model at 
+50 epochs.
+To test the model on unseen example, I took 10% of the dataset before training. The ouput of those 10% gives the following confusion matrix:
+
+![confusion_matrix](resnet18_cm.jpg)
+
+
 
 ### Model Release
-ResNet18 with 6 first layers freezed, trained on 1950 images : UPCOMING IN THE AFTERNOON
+ResNet18 with 6 first layers freezed, trained on 1950 images : [home-assignment-answer/releases/tag/v.0.3](https://github.com/yohann84L/home-assignment-answer/releases/tag/v.0.3)
 
 
 

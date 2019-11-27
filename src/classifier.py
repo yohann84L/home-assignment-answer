@@ -202,19 +202,19 @@ class AlimentClassifier:
             for param in model.parameters():
                 param.requires_grad = False
 
-    def evaluate(self, valid_dataset):
-        self.model.eval()
+    @staticmethod
+    def evaluate(valid_loader, model, device="cuda:0"):
+        model.eval()
 
         # Iterate over the valid_dataset
-        pred_proba = torch.empty(0, 2, device=self.device).zero_().float()
-        true_labels = torch.empty(0, 2, device=self.device).zero_().float()
-        for images, labels in valid_dataset:
-            images = images.to(self.device)
-            labels = torch.tensor(labels, dtype=torch.long, device=self.device)
-
+        pred_proba = torch.empty(0, 2, device=device).zero_().float()
+        true_labels = torch.empty(0, device=device).zero_().float()
+        for images, labels in valid_loader:
+            images = images.to(device)
+            labels = torch.tensor(labels.clone().detach(), dtype=torch.float, device=device)
             true_labels = torch.cat((true_labels, labels))
 
-            output = self.model.forward(images)
+            output = model.forward(images)
             pred_proba = torch.cat((pred_proba, output))
 
         return pred_proba, true_labels
@@ -231,8 +231,8 @@ def save_checkpoint(model, model_name="checkpoint.pth"):
     torch.save(checkpoint, model_name)
 
 
-def load_checkpoint(filepath):
-    checkpoint = torch.load(filepath)
+def load_checkpoint(filepath, device="cuda:0"):
+    checkpoint = torch.load(filepath, map_location=device)
     if checkpoint["arch"] == "ResNet18":
         model = models.resnet18(pretrained=True)
         # Freeze 6 first layers

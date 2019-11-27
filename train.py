@@ -72,8 +72,8 @@ if __name__ == "__main__":
 
     print("Set up datasets ..")
     # Load augmentation pipelines
-    augmentation_pipeline_train = load_agumentation_pipelines[0]
-    tranformation_pipeline_test = load_agumentation_pipelines[1]
+    augmentation_pipeline_train = load_agumentation_pipelines()[0]
+    tranformation_pipeline_test = load_agumentation_pipelines()[1]
 
     # Build dataset
     food_dataset_train = FoodVisorDataset(

@@ -4,7 +4,7 @@
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 
 ---
-You will find in this repository code of the [Coding assignement][1].
+You will find in this repository code of the [FoodVisor Home Assigment](https://github.com/Foodvisor/home-assignment).
 
 Architecture of folder/file:
 ```
@@ -17,7 +17,7 @@ To build this classifier I used PyTorch. I trained the model on using Google Col
 ```
 pip install -r requirements.txt
 ```
-### Training
+## Run Training
 To train the model use:
 ```
 python train.py folder_imgs img_annotations label_mapping model_filepath config
@@ -46,7 +46,7 @@ Default `config.json`:
 }
 ```
 
-### Prediction
+## Run Prediction
 To predict class from an image use:
 ```
 python pred.py model_filepath img_filepath
@@ -106,10 +106,10 @@ We can see at epochs xx, we have an  error_rate < dd.
 
 
 ## References
-- FoodVisor Home Assigment: https://github.com/Foodvisor/home-assignment
-- Custom Datasets/Dataloaders in PyTorch: https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#writing-custom-datasets-dataloaders-and-transforms
-- Example custom dataset: https://github.com/utkuozbulak/pytorch-custom-dataset-examples#custom-dataset-fundamentals
-- Example PyTorch Image Classification: https://github.com/LeanManager/PyTorch_Image_Classifier
-- Albumentations librairie: https://github.com/albumentations-team/albumentations
-- Livelossplot librairie: 
-- Save and loading checkpoint function from : https://github.com/LeanManager/PyTorch_Image_Classifier/blob/master/Image_Classifier_Project.ipynb
+- [FoodVisor Home Assigment](https://github.com/Foodvisor/home-assignment)
+- [Custom Datasets/Dataloaders in PyTorch](https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#writing-custom-datasets-dataloaders-and-transforms)
+- [Example custom dataset](https://github.com/utkuozbulak/pytorch-custom-dataset-examples#custom-dataset-fundamentals)
+- [Example PyTorch Image Classification](https://github.com/LeanManager/PyTorch_Image_Classifier)
+- [Albumentations library](https://github.com/albumentations-team/albumentations)
+- [Livelossplot librairie](https://github.com/stared/livelossplot)
+- [Save and loading checkpoint function from](https://github.com/LeanManager/PyTorch_Image_Classifier/blob/master/Image_Classifier_Project.ipynb)

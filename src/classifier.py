@@ -259,9 +259,9 @@ def load_checkpoint(filepath):
     return model
 
 
-def predict_img(model, image_path, transformation_pipeline):
+def predict_img(model, img, transformation_pipeline):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    image = transformation_pipeline(image=io.imread(image_path))['image']
+    image = transformation_pipeline(image=img)['image']
     image = image.unsqueeze(0).to(device)
     output = model.forward(image)
     return output
@@ -300,9 +300,6 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
     cam = cam - np.min(cam)
     cam_img = cam / np.max(cam)
     cam_img = np.uint8(255 * cam_img)
-    print()
-    print(cam_img.shape)
-    print(cam_img)
     plt.imshow(cam_img)
     plt.show()
 

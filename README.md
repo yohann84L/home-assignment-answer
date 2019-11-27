@@ -11,7 +11,7 @@ Architecture of folder/file:
 .
 └── home-assigment-answer
 ```
-
+# Assignement #1
 ## Prerequisites
 To build this classifier I used PyTorch. I trained the model on using Google Colab. To install required packages:
 ```
@@ -100,20 +100,34 @@ Workflow to train the classifier:
 
 Here are the plot of training and test error_rate:
 
-![resnet_training](resnet18_training_50.png)
+![resnet_training](plot/resnet18_training_50.png)
 
 We can see we start to overfit a bit around around 30 epochs. However, the error rate seems to decrease even after 30 epochs. So I'll save the model at 
-50 epochs.
+50 epochs. The model give an error rate around __*0.05*__.
 To test the model on unseen example, I took 10% of the dataset before training. The ouput of those 10% gives the following confusion matrix:
 
-![confusion_matrix](resnet18_cm.jpg)
+![confusion_matrix](plot/resnet18_cm.jpg)
 
+
+
+
+### What could be improved
+
+- better data augmentation to limit overfitting
+- data augmentation using Generative Adversarial Networks (by creating synthetic sample)
+- try with other model, like ResNet50
+- ...
 
 
 ### Model Release
 ResNet18 with 6 first layers freezed, trained on 1950 images : [home-assignment-answer/releases/tag/v.0.3](https://github.com/yohann84L/home-assignment-answer/releases/tag/v.0.3)
 
+# Assignement #2
+The class activation module seems to work using the function `get_cam()` from `classifier.py`. However, it
+need some tweeking as the function return only the mask for the moment.
 
+Example : 
+![cam](plot/camp.png)
 
 ## References
 - [FoodVisor Home Assigment](https://github.com/Foodvisor/home-assignment)

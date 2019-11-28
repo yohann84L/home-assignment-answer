@@ -45,30 +45,40 @@ class AlimentClassifier:
         else:
             self.loss = loss
 
-    def build_model(self, model=models.resnet18, pretrained=True):
+    def build_model(self, model_name, pretrained=True):
         """
         Method to build the model: pretrained model with new top layer classifier.
 
         Arguments:
         ----------
-            - model : model we want to use, currently only resnet18 is supported,
+            - model_name : name of the model we want to use, currently only resnet18 and efficient_net are supported,
                 if changed, top layer classifier may be broke
             - pretrained (boolean): use or not the pretrained model
         """
-        self.model = model(pretrained=pretrained)
+        supported_model = ["resnet18", "efficient_net"]
+        if model_name not in supported_model:
+            print("Model currently supported are :")
+            for model in supported_model:
+                print("    - {}".format(model))
+            raise ValueError
+        elif model_name == "resnet18":
+            self.model = models.resnet18(pretrained=pretrained)
+            max_count_layer = 7
+        elif model_name == "efficient_net":
+            self.model = EfficientNet.from_pretrained("efficientnet-b0", num_classes=2)
+            max_count_layer = 5
 
         # Freeze 6 first layers
         count = 0
         params_to_update = []
         for child in self.model.children():
             count += 1
-            if count < 7:
+            if count < max_count_layer:
                 for param in child.parameters():
                     param.requires_grad = False
 
         # Update last layers ouputs
-        num_ftrs = self.model.fc.in_features
-        self.model.fc = torch.nn.Linear(num_ftrs, 2)
+        self.update_layers_model(model_name)
 
         # Print parameters we'll learn
         for name, param in self.model.named_parameters():
@@ -179,15 +189,19 @@ class AlimentClassifier:
                     log loss = {}       |       val_log loss = {}
                     error_rate = {}     |       val_error_rate = {}
                 """.format(
-                    self.logs["log loss"], self.logs["val_log loss"],
-                    self.logs["error_rate"], self.logs["val_error_rate"]
+                    self.logs["log loss"],
+                    self.logs["val_log loss"],
+                    self.logs["error_rate"],
+                    self.logs["val_error_rate"],
                 )
                 print(string_print)
 
             # Save checkpoint
             if (e + 1) in save_checkpoint_each:
                 save_checkpoint(
-                    self.model, model_name="AlexNet_checkpoint_e{}.pth".format(e)
+                    self.model,
+                    architecture_name=model_name,
+                    model_name="AlexNet_checkpoint_e{}.pth".format(e)
                 )
 
         # Print training time
@@ -197,6 +211,11 @@ class AlimentClassifier:
                 time_elapsed // 60, time_elapsed % 60
             )
         )
+
+    def update_layers_model(self, model_name):
+        if model_name == "resnet18":
+            num_ftrs = self.model.fc.in_features
+            self.model.fc = torch.nn.Linear(num_ftrs, 2)
 
     @staticmethod
     def evaluate(valid_loader, model, device="cuda:0"):
@@ -230,12 +249,12 @@ class AlimentClassifier:
         return pred_proba, true_labels
 
 
-def save_checkpoint(model, model_name="checkpoint.pth"):
+def save_checkpoint(model, architecture_name, model_name="checkpoint.pth"):
     """
     Function to save model
     """
     checkpoint = {
-        "arch": "ResNet18",
+        "arch": architecture_name,
         "model_state_dict": model.state_dict(),
     }
     torch.save(checkpoint, model_name)
@@ -246,24 +265,25 @@ def load_checkpoint(filepath, device="cuda:0"):
     Function to load model
     """
     checkpoint = torch.load(filepath, map_location=device)
-    if checkpoint["arch"] == "ResNet18":
-        model = models.resnet50(pretrained=True)
-        # Freeze 6 first layers
-        count = 0
-        params_to_update = []
-        for child in model.children():
-            count += 1
-            if count < 8:
-                for param in child.parameters():
-                    param.requires_grad = False
-    else:
-        print("Architecture not recognized.")
-        raise ValueError
+    if checkpoint["arch"] == "resnet18":
+        model = models.resnet18(pretrained=True)
+        max_layer_count = 7
 
-    # Update last layers ouputs
-    num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, 2)
-    model.load_state_dict(checkpoint["model_state_dict"])
+        # Update last layers ouputs
+        num_ftrs = model.fc.in_features
+        model.fc = torch.nn.Linear(num_ftrs, 2)
+        model.load_state_dict(checkpoint["model_state_dict"])
+    elif checkpoint["arch"] == "efficient_net":
+        model = models.resnet18(pretrained=True)
+        max_layer_count = 5
+
+    # Freeze 6 first layers
+    count = 0
+    for child in model.children():
+        count += 1
+        if count < max_layer_count:
+            for param in child.parameters():
+                param.requires_grad = False
 
     return model
 

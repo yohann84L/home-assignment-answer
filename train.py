@@ -129,7 +129,7 @@ if __name__ == "__main__":
     print("Build classifier & model ..")
     # Build classifier
     classifier = AlimentClassifier(params_classifier)
-    classifier.build_model()
+    classifier.build_model(model_name="resnet18")
 
     print("Start training ..")
     # Train

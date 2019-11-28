@@ -21,12 +21,12 @@ class FoodVisorDataset(torch.utils.data.Dataset):
 
     Arguments:
     ----------
-        - json_annotations (str): path file for the img_annotations.json
+        - json_annotations (dict): dictionnary of the img_annotations.json
         - csv_mapping (str): path file for the label_mapping.csv
         - root_dir (str): path folder where all images are located
         - regex_aliment (str): regex to build class. Example: with regex r"[Tt]omate(s)?" with build two classes,
         one containing only image with tomatoes, and one with everything else.
-        - tranform (torchvision.transforms, default=None): Transform to apply
+        - augmentations (albumentation, default=None): Transform to apply using albumentation
         - lang (str, default="fr"): lang corresponding to label ("fr" and "en" only)
     """
 
@@ -52,7 +52,7 @@ class FoodVisorDataset(torch.utils.data.Dataset):
                 print("   - {:s}".format(l))
             raise ValueError
 
-        # For faster computation, let's build a dictionnary with equivalence img_id <->> classe
+        # For faster computation, let's build a dictionary with equivalence img_id <->> classe
         self.image_to_classes = {}
         self.__build_image_to_classes()
 
@@ -73,12 +73,32 @@ class FoodVisorDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return len(self.img_annotations.keys())
 
-    def __get_label_for_id(self, label_id: str):
+    def __get_label_for_id(self, label_id: str) -> str:
+        """
+        Method to get the label from a label id using the label mapping
+
+        Argument:
+        ---------
+            - label_id (str): id of the label
+        Return:
+        -------
+            - label (str)
+        """
         return self.csv_mapping[self.csv_mapping[Constants.COL_LABEL_ID] == label_id][
             Constants.COL_LABEL_NAME + self.__lang
         ].values[0]
 
-    def __is_aliment_present(self, image_id):
+    def __is_aliment_present(self, image_id: str) -> bool:
+        """
+        Method to check if an aliment is present in an image.
+
+        Argument:
+        ---------
+            - image_id (str): id of the image we want to check
+        Return:
+        -------
+            - boolean: true if the image contains aliment, false else
+        """
         func = lambda dict_box: self.__get_label_for_id(dict_box["id"])
         r = re.compile(self.__regex_aliment)
         if any(r.match(w) for w in map(func, self.img_annotations[image_id])):
@@ -86,6 +106,9 @@ class FoodVisorDataset(torch.utils.data.Dataset):
         return False
 
     def __build_image_to_classes(self):
+        """
+        Method to build the dictionary image <-> classes
+        """
         for img_id in self.img_annotations.keys():
             if self.__is_aliment_present(img_id):
                 self.image_to_classes[img_id] = 1
@@ -93,9 +116,20 @@ class FoodVisorDataset(torch.utils.data.Dataset):
                 self.image_to_classes[img_id] = 0
 
 
-def split_train_test_valid_json(
-    img_annotation_path, random_seed=None, split_size=(0.8, 0.2)
-):
+def split_train_test_valid_json(img_annotation_path: str, random_seed: int = None, split_size=(0.8, 0.2)):
+    """
+    Method to split dataset ids into train, test and valid
+
+    Argument:
+    ---------
+        - img_annotation_path (str): filename/path of the annotation json file
+        - random_seed (int): seed of the random shuffle
+        - split_size (tuple of float): float size for each split
+
+    Return:
+    -------
+        - 2 or 3 dictionary corresponding to the splitted annotation json file
+    """
     with open(img_annotation_path) as f:
         img_annotation = json.load(f)
 
@@ -134,22 +168,3 @@ def split_train_test_valid_json(
 
     else:
         raise NotImplementedError
-
-
-def plot_9_images(dataset):
-    import matplotlib.pyplot as plt
-    import random
-
-    fig = plt.figure()
-
-    idx = [random.randint(0, len(dataset)) for i in range(9)]
-
-    for i, id in enumerate(idx):
-        sample = dataset[id]
-
-        ax = plt.subplot(3, 3, i + 1)
-        plt.tight_layout()
-        ax.set_title("Food #{}\n{}".format(id, sample["label"]))
-        ax.axis("off")
-        ax.imshow(sample["image"])
-    plt.show()

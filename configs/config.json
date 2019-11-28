@@ -9,5 +9,10 @@
         "threshold": 0.5,
         "learning_rate": 0.001,
         "epochs": 40
+    },
+    "param_common": {
+        "split_size_train_test": [0.65, 0.25, 0.1],
+        "regex_aliment": "[Tt]omate(s)?",
+        "save_checkpoint_each": [20, 40]
     }
 }

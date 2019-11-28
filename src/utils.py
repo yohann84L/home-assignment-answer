@@ -55,7 +55,9 @@ def init_parser_pred():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("model_filepath", help="File path for the model")
-    parser.add_argument("img_filepath", help="File path for the image we want to predict class")
+    parser.add_argument(
+        "img_filepath", help="File path for the image we want to predict class"
+    )
     parser.add_argument("--plot_result", help="Boolean to plot or not the result")
     return parser.parse_args()
 
@@ -66,4 +68,4 @@ def parse_config_file(config_path):
     """
     with open(config_path) as json_f:
         config = json.load(json_f)
-    return config["param_loader"], config["param_classifier"]
+    return (config["param_loader"], config["param_classifier"], config["param_common"])

@@ -15,14 +15,15 @@ class AlimentClassifier:
     Arguments:
     ----------
         - optimizer (default = Adam): optimizer of the classifier
-        - loss (default = BCELoss): loss function of the classifier
+        - loss (default = CrossEntropyLoss): loss function of the classifier
+        - loss_weight (list): weight for each class if unbalanced
         - params_classifier (dict): parameters for the dataset loader, params are:
                 "threshold": 0.5,
                 "epochs": 40,
                 "learning_rate": 0.001
     """
 
-    def __init__(self, optimizer=torch.optim.Adam, loss=None, params_classifier=None):
+    def __init__(self, params_classifier, optimizer=torch.optim.Adam, loss=None):
         # Define some variables
         self.model = None
         self.optimizer = optimizer
@@ -31,17 +32,18 @@ class AlimentClassifier:
 
         # Loss function and gradient descent
         if loss is None:
-            weights = [1, 6]
-            class_weights = torch.tensor(weights, dtype=torch.float, device=self.device)
-            self.loss = torch.nn.CrossEntropyLoss(weight=class_weights)
+            if "loss_weight" in params_classifier.keys():
+                # Because class are unbalance we define a weightfor each class
+                class_weights = torch.tensor(
+                    params_classifier["loss_weight"],
+                    dtype=torch.float,
+                    device=self.device,
+                )
+                self.loss = torch.nn.CrossEntropyLoss(weight=class_weights)
+            else:
+                self.loss = torch.nn.CrossEntropyLoss()
         else:
             self.loss = loss
-
-        # Parameters
-        if params_classifier is None:
-            self.params_classifier = Constants.DEFAULT_PARAM_CLASSIFIER
-        else:
-            self.params_classifier = params_classifier
 
     def build_model(self, model=models.resnet18, pretrained=True):
         """
@@ -49,10 +51,9 @@ class AlimentClassifier:
 
         Arguments:
         ----------
-            - model_pretrained : pretrained model we want to use, currently only resnet50 is supported,
+            - model : model we want to use, currently only resnet18 is supported,
                 if changed, top layer classifier may be broke
-            - feature_extract (bool=True): if true, only top layers classifier
-                parameters will be updated
+            - pretrained (boolean): use or not the pretrained model
         """
         self.model = model(pretrained=pretrained)
 
@@ -75,6 +76,7 @@ class AlimentClassifier:
                 params_to_update.append(param)
                 print("\t", name)
 
+        # Define optimizer
         self.optimizer = self.optimizer(
             params_to_update, lr=self.params_classifier["learning_rate"]
         )
@@ -94,7 +96,7 @@ class AlimentClassifier:
         ----------
             - train_loader : DatasetLoader for the training set
             - test_loader : DatasetLoader for the test set
-            - params (dict) : if needed to update some paramters such as epochs without rebuilding
+            - params (dict) : if needed to update some parameters such as epochs without rebuilding
             the entire class put the updated parameters here
             - livelossplot (bool=False): use livelossplot to plot running loss and error_rate
             - save_checkpoint_each (list): list of epoch when we want to save model
@@ -133,6 +135,7 @@ class AlimentClassifier:
                 running_loss = 0.0
                 running_uncorrects = 0
 
+                # Loop over loader
                 for images, labels in iter(loader_dict[phase]):
                     images = images.to(self.device)
                     labels = torch.tensor(labels, dtype=torch.long, device=self.device)
@@ -152,6 +155,7 @@ class AlimentClassifier:
                     running_loss += loss.detach() * images.size(0)
                     running_uncorrects += torch.sum(predicted != labels.data.detach())
 
+                # Compute loss and error_rate
                 size_loader = len(loader_dict[phase].dataset)
                 epoch_loss = running_loss / size_loader
                 epoch_error_rate = running_uncorrects.float() / size_loader
@@ -170,7 +174,15 @@ class AlimentClassifier:
                 liveloss.update(self.logs)
                 liveloss.draw()
             else:
-                string_print = ""
+                string_print = """
+                Training:               |   Validation:
+                    log loss = {}       |       val_log loss = {}
+                    error_rate = {}     |       val_error_rate = {}
+                """.format(
+                    self.logs["log loss"], self.logs["val_log loss"],
+                    self.logs["error_rate"], self.logs["val_error_rate"]
+                )
+                print(string_print)
 
             # Save checkpoint
             if (e + 1) in save_checkpoint_each:
@@ -187,23 +199,17 @@ class AlimentClassifier:
         )
 
     @staticmethod
-    def set_parameter_requires_grad(model, feature_extracting: bool):
-        """
-        Static method to set parameters requires grad or not. It depends on if we want to train
-        all paramters or only top layers classifier
-
-        Arguments:
-        ----------
-            - model
-            - feature_extracting (boolean): if true, only top layers classifier
-             parameters will be updated
-        """
-        if feature_extracting:
-            for param in model.parameters():
-                param.requires_grad = False
-
-    @staticmethod
     def evaluate(valid_loader, model, device="cuda:0"):
+        """
+        Method to evaluate a test set.
+
+        Argument:
+        ---------
+            - valid_loader (dataloader): loader with dataset to evaluate
+            - model (pytorch model): model to evaluate
+            - device (str="cuda:0"): device to use
+        """
+        # Set model into eval mode
         model.eval()
 
         # Iterate over the valid_dataset
@@ -211,9 +217,13 @@ class AlimentClassifier:
         true_labels = torch.empty(0, device=device).zero_().float()
         for images, labels in valid_loader:
             images = images.to(device)
-            labels = torch.tensor(labels.clone().detach(), dtype=torch.float, device=device)
+            labels = torch.tensor(
+                labels.clone().detach(), dtype=torch.float, device=device
+            )
+            # Append true labels
             true_labels = torch.cat((true_labels, labels))
 
+            # Predict and appends predicted values
             output = model.forward(images)
             pred_proba = torch.cat((pred_proba, output))
 
@@ -232,15 +242,18 @@ def save_checkpoint(model, model_name="checkpoint.pth"):
 
 
 def load_checkpoint(filepath, device="cuda:0"):
+    """
+    Function to load model
+    """
     checkpoint = torch.load(filepath, map_location=device)
     if checkpoint["arch"] == "ResNet18":
-        model = models.resnet18(pretrained=True)
+        model = models.resnet50(pretrained=True)
         # Freeze 6 first layers
         count = 0
         params_to_update = []
         for child in model.children():
             count += 1
-            if count < 7:
+            if count < 8:
                 for param in child.parameters():
                     param.requires_grad = False
     else:
@@ -264,6 +277,9 @@ def predict_img(model, img, transformation_pipeline):
 
 
 def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
+    """
+    Method under construction
+    """
     import numpy as np
     from torch.autograd import Variable
     import matplotlib.pyplot as plt
@@ -285,7 +301,6 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
 
     logit = model(image)
 
-
     bz, nc, h, w = conv_fmap[0].shape
 
     print(bz, nc, h, w)
@@ -302,5 +317,5 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
     cam_img.show()
     base_img.paste(cam_img, (0, 0))
     base_img.show()
-    #plt.imshow(base_img)
-    #plt.show()
+    # plt.imshow(base_img)
+    # plt.show()

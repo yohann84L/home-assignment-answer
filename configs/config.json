@@ -8,7 +8,8 @@
     "param_classifier": {
         "threshold": 0.5,
         "learning_rate": 0.001,
-        "epochs": 40
+        "epochs": 40,
+        "loss_weight": [1, 6]
     },
     "param_common": {
         "split_size_train_test": [0.65, 0.25, 0.1],

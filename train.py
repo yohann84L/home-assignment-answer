@@ -71,7 +71,7 @@ if __name__ == "__main__":
     CONFIG_PATH = Path(ARGS.config)
 
     # Load param dictionnary
-    params_loader, params_classifier = parse_config_file(CONFIG_PATH)
+    params_loader, params_classifier, param_common = parse_config_file(CONFIG_PATH)
 
     print("Set up datasets ..")
     # Load augmentation pipelines
@@ -83,7 +83,7 @@ if __name__ == "__main__":
         img_annotations_test,
         img_annotations_valid,
     ) = split_train_test_valid_json(
-        IMG_ANNOTATIONS_PATH, random_seed=42, split_size=[0.7, 0.2, 0.1]
+        IMG_ANNOTATIONS_PATH, random_seed=42, split_size=param_common["split_size_train_test"]
     )
 
     # Build dataset
@@ -91,21 +91,21 @@ if __name__ == "__main__":
         json_annotations=img_annotations_train,
         csv_mapping=LABEL_MAPPING_PATH,
         root_dir=FOLDER_IMGS,
-        regex_aliment=r"[Tt]omate(s)?",
+        regex_aliment=param_common["regex_aliment"],
         augmentations=augmentation_pipeline_train,
     )
     food_dataset_test = FoodVisorDataset(
         json_annotations=img_annotations_test,
         csv_mapping=LABEL_MAPPING_PATH,
         root_dir=FOLDER_IMGS,
-        regex_aliment=r"[Tt]omate(s)?",
+        regex_aliment=param_common["regex_aliment"],
         augmentations=tranformation_pipeline_test,
     )
     food_dataset_valid = FoodVisorDataset(
         json_annotations=img_annotations_valid,
         csv_mapping=LABEL_MAPPING_PATH,
         root_dir=FOLDER_IMGS,
-        regex_aliment=r"[Tt]omate(s)?",
+        regex_aliment=param_common["regex_aliment"],
         augmentations=tranformation_pipeline_test,
     )
 
@@ -138,5 +138,5 @@ if __name__ == "__main__":
         test_loader=test_loader,
         params=params_classifier,
         livelossplot=False,
-        save_checkpoint_each=None,
+        save_checkpoint_each=param_common["save_checkpoint_each"],
     )

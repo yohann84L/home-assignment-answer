@@ -267,6 +267,7 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
     import numpy as np
     from torch.autograd import Variable
     import matplotlib.pyplot as plt
+    from PIL import Image
 
     conv_fmap = []
 
@@ -276,7 +277,7 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
     model._modules.get(last_conv_layer).register_forward_hook(hook)
 
     params = list(model.parameters())
-    weight_softmax = np.squeeze(params[-4].data.cpu().numpy())
+    weight_softmax = np.squeeze(params[-2].data.cpu().numpy())
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     image = transformation_pipeline(image=io.imread(image_path))["image"]
@@ -291,11 +292,15 @@ def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
     print(weight_softmax.shape)
 
     cam = weight_softmax.dot(conv_fmap[0].reshape((nc, h * w)))
-    plt.imshow(cam)
+    print(cam.shape)
     cam = cam.reshape(h, w)
     cam = cam - np.min(cam)
     cam_img = cam / np.max(cam)
-    cam_img = np.uint8(255 * cam_img)
-    print(cam_img.shape)
-    plt.imshow(cam_img)
-    plt.show()
+    cam_img = Image.fromarray(np.uint8(255 * cam_img))
+    base_img = Image.open(image_path)
+    base_img.resize((h, w))
+    cam_img.show()
+    base_img.paste(cam_img, (0, 0))
+    base_img.show()
+    #plt.imshow(base_img)
+    #plt.show()

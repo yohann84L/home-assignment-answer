@@ -115,9 +115,13 @@ To test the model on unseen example, I took 10% of the dataset before training. 
 
 
 Here is a brief sum up of what I used for the classifier:  
+
 | Model| Optimizer | Loss Function | Epochs| Batch Size | Learning Rate|
 |--|--| --|-- |--|--|
-| ResNet18 with 6 bottom layers freezed| Adam | Cross Entropy Loss | 80 | 32 | 0.001
+| ResNet18 with 6 bottom layers freezed| Adam | Cross Entropy Loss | 80 | 32 | 0.001 |
+
+### Model Release
+ResNet18 with 6 first layers freezed, trained on 1950 images : [home-assignment-answer/releases/tag/v.0.3](https://github.com/yohann84L/home-assignment-answer/releases/tag/v.0.3)
 
 ### What could be improved
 
@@ -126,15 +130,12 @@ Here is a brief sum up of what I used for the classifier:
 - try with other model, like ResNet50
 - ...
 
-
-### Model Release
-ResNet18 with 6 first layers freezed, trained on 1950 images : [home-assignment-answer/releases/tag/v.0.3](https://github.com/yohann84L/home-assignment-answer/releases/tag/v.0.3)
-
 # Assignement #2
 The class activation module seems to work using the function `get_cam()` from `classifier.py`. However, it
 need some tweaking as the function return only the mask for the moment.
 
 Example : 
+
 ![cam](plot/cam.png)
 
 ## References

@@ -16,14 +16,15 @@ class Constants:
     DEFAULT_PARAM_LOADER = {
         "batch_size": 32,
         "validation_split": 0.2,
-        "shuffle_dataset": True,
-        "random_seed": 42,
+        "shuffle_dataset": true,
+        "random_seed": 42
     }
 
     DEFAULT_PARAM_CLASSIFIER = {
         "threshold": 0.5,
         "learning_rate": 0.001,
         "epochs": 40,
+        "loss_weight": [1, 6]
     }
 
 

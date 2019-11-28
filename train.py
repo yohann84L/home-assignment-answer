@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     print("Build classifier & model ..")
     # Build classifier
-    classifier = AlimentClassifier()
+    classifier = AlimentClassifier(params_classifier)
     classifier.build_model()
 
     print("Start training ..")

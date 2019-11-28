@@ -41,10 +41,11 @@ Default `config.json`:
     "param_classifier": {
         "threshold": 0.5,
         "learning_rate": 0.001,
-        "epochs": 40
+        "epochs": 40,
+        "loss_weight": [1, 6]
     },
     "param_common": {
-        "split_size_train_test": [0.8, 0.7],
+        "split_size_train_test": [0.65, 0.25, 0.1],
         "regex_aliment": "[Tt]omate(s)?",
         "save_checkpoint_each": [20, 40]
     }
@@ -118,7 +119,7 @@ Here is a brief sum up of what I used for the classifier:
 
 | Model| Optimizer | Loss Function | Epochs| Batch Size | Learning Rate|
 |--|--| --|-- |--|--|
-| ResNet18 with 6 bottom layers freezed| Adam | Cross Entropy Loss | 80 | 32 | 0.001 |
+| ResNet18 with 6 bottom layers freezed| Adam | Weighted Cross Entropy Loss | 80 | 32 | 0.001 |
 
 ### Model Release
 ResNet18 with 6 first layers freezed, trained on 1950 images : [home-assignment-answer/releases/tag/v.0.3](https://github.com/yohann84L/home-assignment-answer/releases/tag/v.0.3)

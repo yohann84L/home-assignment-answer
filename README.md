@@ -131,6 +131,13 @@ ResNet18 with 6 first layers freezed, trained on 1950 images : [home-assignment-
 - try with other model, like ResNet50
 - ...
 
+## Work In Progress
+Currently trying with EfficientNet from the implementation of @lukemelas [EfficientNet-PyTorch](https://github.com/lukemelas/EfficientNet-PyTorch). I'm working on this feature on the branch [feature/EfficientNet_implementation](https://github.com/yohann84L/home-assignment-answer/tree/feature/EfficientNet_implementation).
+
+Here is the loss/error_rate with EfficientNet-B0:
+
+![efficient_net_b0](plot/efficient_net_b0.png)
+
 # Assignement #2
 The class activation module seems to work using the function `get_cam()` from `classifier.py`. However, it
 need some tweaking as the function return only the mask for the moment.

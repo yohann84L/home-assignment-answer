@@ -241,31 +241,33 @@ def save_checkpoint(model, model_name="checkpoint.pth"):
     torch.save(checkpoint, model_name)
 
 
-def load_checkpoint(filepath, device="cuda:0"):
+def load_checkpoint(filepath, device="cpu"):
     """
     Function to load model
     """
     checkpoint = torch.load(filepath, map_location=device)
     if checkpoint["arch"] == "ResNet18":
-        model = models.resnet50(pretrained=True)
+        model = models.resnet18(pretrained=True)
         # Freeze 6 first layers
         count = 0
         params_to_update = []
         for child in model.children():
             count += 1
-            if count < 8:
+            if count < 7:
                 for param in child.parameters():
                     param.requires_grad = False
+
+        # Update last layers ouputs
+        num_ftrs = model.fc.in_features
+        model.fc = torch.nn.Linear(num_ftrs, 2)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        return model
     else:
         print("Architecture not recognized.")
         raise ValueError
 
-    # Update last layers ouputs
-    num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, 2)
-    model.load_state_dict(checkpoint["model_state_dict"])
 
-    return model
+
 
 
 def predict_img(model, img, transformation_pipeline):

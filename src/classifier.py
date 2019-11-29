@@ -2,10 +2,7 @@ import time
 
 import torch
 from livelossplot import PlotLosses
-from skimage import io
 from torchvision import models
-
-from src.utils import Constants
 
 
 class AlimentClassifier:
@@ -179,8 +176,10 @@ class AlimentClassifier:
                     log loss = {}       |       val_log loss = {}
                     error_rate = {}     |       val_error_rate = {}
                 """.format(
-                    self.logs["log loss"], self.logs["val_log loss"],
-                    self.logs["error_rate"], self.logs["val_error_rate"]
+                    self.logs["log loss"],
+                    self.logs["val_log loss"],
+                    self.logs["error_rate"],
+                    self.logs["val_error_rate"],
                 )
                 print(string_print)
 
@@ -267,9 +266,6 @@ def load_checkpoint(filepath, device="cpu"):
         raise ValueError
 
 
-
-
-
 def predict_img(model, img, transformation_pipeline):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     image = transformation_pipeline(image=img)["image"]
@@ -277,48 +273,3 @@ def predict_img(model, img, transformation_pipeline):
     model.eval()
     output = model.forward(image)
     return output
-
-
-def get_cam(model, last_conv_layer, image_path, transformation_pipeline):
-    """
-    Method under construction
-    """
-    import numpy as np
-    from torch.autograd import Variable
-    import matplotlib.pyplot as plt
-    from PIL import Image
-
-    conv_fmap = []
-
-    def hook(module, input, output):
-        return conv_fmap.append(output.data.cpu().numpy())
-
-    model._modules.get(last_conv_layer).register_forward_hook(hook)
-
-    params = list(model.parameters())
-    weight_softmax = np.squeeze(params[-2].data.cpu().numpy())
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    image = transformation_pipeline(image=io.imread(image_path))["image"]
-    image = Variable(image.unsqueeze(0)).to(device)
-
-    logit = model(image)
-
-    bz, nc, h, w = conv_fmap[0].shape
-
-    print(bz, nc, h, w)
-    print(weight_softmax.shape)
-
-    cam = weight_softmax.dot(conv_fmap[0].reshape((nc, h * w)))
-    print(cam.shape)
-    cam = cam.reshape(h, w)
-    cam = cam - np.min(cam)
-    cam_img = cam / np.max(cam)
-    cam_img = Image.fromarray(np.uint8(255 * cam_img))
-    base_img = Image.open(image_path)
-    base_img.resize((h, w))
-    cam_img.show()
-    base_img.paste(cam_img, (0, 0))
-    base_img.show()
-    # plt.imshow(base_img)
-    # plt.show()

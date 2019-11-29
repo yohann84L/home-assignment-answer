@@ -16,7 +16,7 @@ class Constants:
     DEFAULT_PARAM_LOADER = {
         "batch_size": 32,
         "validation_split": 0.2,
-        "shuffle_dataset": true,
+        "shuffle_dataset": True,
         "random_seed": 42
     }
 

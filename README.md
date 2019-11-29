@@ -139,10 +139,33 @@ Here is the loss/error_rate with EfficientNet-B0:
 ![efficient_net_b0](plot/efficient_net_b0.png)
 
 # Assignement #2
-The class activation module seems to work using the function `get_cam()` from `classifier.py`. However, it
-need some tweaking as the function return only the mask for the moment.
+The class activation module seems to work, however I did not test it using bounding box to get a score on it.
+Code to use it:
+```python
+import albumentations as A
+from src.class_activation_mapping import ClassActivationMapping
+from albumentations.pytorch import ToTensorV2
+from src.classifier import load_checkpoint
 
-Example : 
+tranformation_pipeline_test = A.Compose(
+    [
+        A.Resize(width=224, height=224, always_apply=True),
+        A.Normalize(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]),
+        ToTensorV2()  # convert the image to PyTorch tensor
+    ],
+    p=1,
+)
+
+model = load_checkpoint("models/ResNet18_checkpoint_e50.pth", device="cpu")
+
+cam = ClassActivationMapping(model, "image_to_predict/4db849ecafb0fbac1f3b802d75a960d0.jpeg", tranformation_pipeline_test)
+cam_map = cam.get_cam()
+cam.show_cam_on_image(cam_map)
+```
+
+And here are the result:
 
 ![cam](plot/cam.png)
 
@@ -154,3 +177,5 @@ Example :
 - [Albumentations library](https://github.com/albumentations-team/albumentations)
 - [Livelossplot librairie](https://github.com/stared/livelossplot)
 - [Save and loading checkpoint function from](https://github.com/LeanManager/PyTorch_Image_Classifier/blob/master/Image_Classifier_Project.ipynb)
+- [Use of hooks](https://blog.paperspace.com/pytorch-hooks-gradient-clipping-debugging/)
+- [Learning Deep Features for Discriminative Localization](https://arxiv.org/abs/1512.04150)

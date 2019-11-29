@@ -274,6 +274,7 @@ def predict_img(model, img, transformation_pipeline):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     image = transformation_pipeline(image=img)["image"]
     image = image.unsqueeze(0).to(device)
+    model.eval()
     output = model.forward(image)
     return output
 
